@@ -80,8 +80,8 @@ func (c *lruCache) Get(key string) (Value, bool) {
 
 	// 更新该缓存节点为最新，需要加写锁
 	c.mu.Lock()
-	// 再次检查元素是否仍然存在（可能在获取写锁期间被其他协程删除）
-	if _, ok := c.items[key]; ok {
+	// 再次检查元素是否仍然存在，且是否仍然是同一个节点（可能在获取写锁期间被其他协程删除并重新添加了新的节点）
+	if curElem, ok := c.items[key]; ok && curElem == elem {
 		c.list.MoveToBack(elem) // 移动到队尾，默认最新
 	}
 	c.mu.Unlock()
