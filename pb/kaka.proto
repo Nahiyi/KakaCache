@@ -1,0 +1,28 @@
+syntax = "proto3";
+package pb;
+
+option go_package = "./";
+
+// 请求结构：包含了操作所需的命名空间(group)、键(key)和值(value)
+message Request {
+  string group = 1;
+  string key = 2;
+  bytes value = 3;
+}
+
+// Get 响应结构：返回查询到的字节数据
+message ResponseForGet {
+  bytes value = 1;
+}
+
+// Delete 响应结构：返回删除是否成功
+message ResponseForDelete {
+  bool value = 1;
+}
+
+// 定义 gRPC 服务及其拥有的三个核心方法
+service KakaCache {
+  rpc Get(Request) returns (ResponseForGet);
+  rpc Set(Request) returns (ResponseForGet);
+  rpc Delete(Request) returns(ResponseForDelete);
+}
