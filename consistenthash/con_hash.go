@@ -139,14 +139,18 @@ func (m *Map) Get(key string) string {
 	if idx == len(m.keys) {
 		idx = 0
 	}
+
+	// 在读锁保护下直接获取节点名称，避免 RUnlock 后 keys 发生变化导致 idx 失效
+	node := m.hashMap[m.keys[idx]] // m.keys[idx]就是哈希环索引
 	m.mu.RUnlock()
 
-	m.mu.Lock()
-	node := m.hashMap[m.keys[idx]]       // m.keys[idx]就是哈希环索引
-	count := m.nodeCounts[node]          // 计算该节点的总节点负载
-	m.nodeCounts[node] = count + 1       // 访问一次，负载+1
-	atomic.AddInt64(&m.totalRequests, 1) // 总访问量+1
-	m.mu.Unlock()
+	// 重新获取写锁更新统计数据
+	if node != "" {
+		m.mu.Lock()
+		m.nodeCounts[node]++                 // 访问一次，负载+1
+		atomic.AddInt64(&m.totalRequests, 1) // 总访问量+1
+		m.mu.Unlock()
+	}
 
 	return node
 }
