@@ -116,7 +116,7 @@ func (m *Map) removeInternal(node string) error {
 	return nil
 }
 
-// Get 根据key获取对应路由到的哈希环索引
+// Get 根据key获取对应路由到的节点
 func (m *Map) Get(key string) string {
 	if key == "" {
 		return ""
