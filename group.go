@@ -182,7 +182,7 @@ func (g *Group) Set(ctx context.Context, key string, value []byte) error {
 		g.mainCache.Add(key, view)
 	}
 
-	// 如果不是从其他节点同步过来的请求，且启用了分布式模式，同步到其他节点
+	// 如果不是从其他节点同步过来的请求（即普通客户端请求），且启用了分布式模式，则同步到其他节点
 	if !isPeerRequest && g.peers != nil {
 		go g.syncToPeers(ctx, "set", key, value)
 	}
@@ -215,7 +215,7 @@ func (g *Group) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// syncToPeers 同步操作到其他节点
+// syncToPeers 同步操作到对应节点（由key确定）
 func (g *Group) syncToPeers(ctx context.Context, op string, key string, value []byte) {
 	if g.peers == nil {
 		return
@@ -227,7 +227,7 @@ func (g *Group) syncToPeers(ctx context.Context, op string, key string, value []
 		return
 	}
 
-	// 创建同步请求上下文
+	// 创建同步请求上下文，带有特殊的一个value作为标记
 	syncCtx := context.WithValue(context.Background(), "from_peer", true)
 
 	var err error
@@ -342,7 +342,7 @@ func (g *Group) getFromPeer(ctx context.Context, peer Peer, key string) (ByteVie
 	return ByteView{b: bytes}, nil
 }
 
-// RegisterPeers 注册PeerPicker
+// RegisterPeers 注册当前缓存组的PeerPicker
 func (g *Group) RegisterPeers(peers PeerPicker) {
 	if g.peers != nil {
 		panic("RegisterPeers called more than once")
