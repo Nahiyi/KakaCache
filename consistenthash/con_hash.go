@@ -14,10 +14,10 @@ import (
 type Map struct {
 	mu            sync.RWMutex
 	config        *Config          // 配置信息
-	keys          []int            // 哈希环索引，0~2^32-1
+	keys          []int            // 哈希环索引切片，2^32个哈希索引
 	hashMap       map[int]string   // 哈希环索引到节点的映射
 	nodeReplicas  map[string]int   // 节点到虚拟节点数量的映射
-	nodeCounts    map[string]int64 // 节点负载统计
+	nodeCounts    map[string]int64 // 节点与节点负载（含虚拟）的映射，用于负载统计
 	totalRequests int64            // 总请求数
 }
 
@@ -66,6 +66,7 @@ func (m *Map) Add(nodes ...string) error {
 		}
 
 		// 为节点添加虚拟节点（节点是宏观笼统概括，具体就是指replicas数量个虚拟节点）
+		// 所传入的node就是原始节点名称
 		m.addNode(node, m.config.DefaultReplicas)
 	}
 
@@ -76,54 +77,61 @@ func (m *Map) Add(nodes ...string) error {
 
 // Remove 移除节点
 func (m *Map) Remove(node string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.removeInternal(node)
+}
+
+// removeInternal 内部移除节点逻辑，调用方需持有互斥锁
+func (m *Map) removeInternal(node string) error {
 	if node == "" {
 		return errors.New("invalid node")
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	// 获取本节点的虚拟节点数量
-	replicas := m.nodeReplicas[node]
-	if replicas == 0 {
+	replicas, ok := m.nodeReplicas[node]
+	if !ok {
 		return fmt.Errorf("node %s not found", node)
 	}
 
 	// 遍历移除节点的所有虚拟节点
 	for i := 0; i < replicas; i++ {
-		// 和addNode时同理先计算出哈希值
-		hash := int(m.config.HashFunc([]byte(fmt.Sprintf("%s-%d", node, i))))
+		// 和addNode时同理先计算出哈希环索引
+		hashRingIdx := int(m.config.HashFunc([]byte(fmt.Sprintf("%s-%d", node, i))))
 		// 删除哈希环索引到该虚拟节点的映射
-		delete(m.hashMap, hash)
+		delete(m.hashMap, hashRingIdx)
+		// 在哈希环中移除该索引记录
 		for j := 0; j < len(m.keys); j++ {
-			if m.keys[j] == hash {
+			if m.keys[j] == hashRingIdx {
 				m.keys = append(m.keys[:j], m.keys[j+1:]...)
 				break
 			}
 		}
 	}
 
+	// 删除节点到虚拟节点数量的映射
 	delete(m.nodeReplicas, node)
+	// 删除节点到节点总负载的映射
 	delete(m.nodeCounts, node)
 	return nil
 }
 
-// Get 获取节点
+// Get 根据key获取对应路由到的哈希环索引
 func (m *Map) Get(key string) string {
 	if key == "" {
 		return ""
 	}
 
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	if len(m.keys) == 0 {
 		return ""
 	}
 
+	// 计算key的哈希环索引
 	hash := int(m.config.HashFunc([]byte(key)))
-	// 二分查找
+	// 二分查找，找第一个让func(i)返回true的索引i
 	idx := sort.Search(len(m.keys), func(i int) bool {
+		// 返回第一个>=key的哈希环索引的位置，即顺时针最近节点
 		return m.keys[i] >= hash
 	})
 
@@ -131,24 +139,27 @@ func (m *Map) Get(key string) string {
 	if idx == len(m.keys) {
 		idx = 0
 	}
+	m.mu.RUnlock()
 
-	node := m.hashMap[m.keys[idx]]
-	count := m.nodeCounts[node]
-	m.nodeCounts[node] = count + 1
-	atomic.AddInt64(&m.totalRequests, 1)
+	m.mu.Lock()
+	node := m.hashMap[m.keys[idx]]       // m.keys[idx]就是哈希环索引
+	count := m.nodeCounts[node]          // 计算该节点的总节点负载
+	m.nodeCounts[node] = count + 1       // 访问一次，负载+1
+	atomic.AddInt64(&m.totalRequests, 1) // 总访问量+1
+	m.mu.Unlock()
 
 	return node
 }
 
-// addNode 为节点node添加replicas个虚拟节点
+// addNode 添加节点的虚拟节点
 func (m *Map) addNode(node string, replicas int) {
 	for i := 0; i < replicas; i++ {
-		// 根据为哈希环配置的哈希函数计算输出每个key的哈希值
-		hash := int(m.config.HashFunc([]byte(fmt.Sprintf("%s-%d", node, i))))
-		// 添加本虚拟节点的哈希值到哈希环中（上行强转为int，可能溢出为负数，但是实际不影响！）
-		m.keys = append(m.keys, hash)
+		// 根据为哈希环配置的哈希函数计算输出每个虚拟节点的key的哈希环索引
+		hashRingIdx := int(m.config.HashFunc([]byte(fmt.Sprintf("%s-%d", node, i))))
+		// 添加本虚拟节点的索引到哈希环中（上行强转为int，可能溢出为负数，但是实际不影响！）
+		m.keys = append(m.keys, hashRingIdx)
 		// 添加一条哈希环索引-节点的映射
-		m.hashMap[hash] = node
+		m.hashMap[hashRingIdx] = node
 	}
 	// 遍历完毕后，添加一条节点-节点的虚拟节点数量的映射
 	m.nodeReplicas[node] = replicas
@@ -160,10 +171,13 @@ func (m *Map) checkAndRebalance() {
 		return // 样本太少，不进行调整
 	}
 
-	// 计算负载情况
-	avgLoad := float64(m.totalRequests) / float64(len(m.nodeReplicas))
-	var maxDiff float64
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
+	// 计算负载情况：每个节点平均访问量
+	avgLoad := float64(atomic.LoadInt64(&m.totalRequests)) / float64(len(m.nodeReplicas))
+	var maxDiff float64
+	// 取极差为负载不均衡度
 	for _, count := range m.nodeCounts {
 		diff := math.Abs(float64(count) - avgLoad)
 		if diff/avgLoad > maxDiff {
@@ -173,7 +187,11 @@ func (m *Map) checkAndRebalance() {
 
 	// 如果负载不均衡度超过阈值，调整虚拟节点
 	if maxDiff > m.config.LoadBalanceThreshold {
+		// 释放读锁，以便rebalanceNodes能获取写锁
+		m.mu.RUnlock()
 		m.rebalanceNodes()
+		// 重新获取读锁，以配合defer RUnlock
+		m.mu.RLock()
 	}
 }
 
@@ -208,7 +226,8 @@ func (m *Map) rebalanceNodes() {
 
 		if newReplicas != currentReplicas {
 			// 重新添加节点的虚拟节点
-			if err := m.Remove(node); err != nil {
+			// 使用内部方法避免死锁
+			if err := m.removeInternal(node); err != nil {
 				continue // 如果移除失败，跳过这个节点
 			}
 			m.addNode(node, newReplicas)
