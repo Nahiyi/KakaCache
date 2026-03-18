@@ -3,6 +3,7 @@ package consistenthash
 import (
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"math"
 	"sort"
 	"sync"
@@ -151,6 +152,9 @@ func (m *Map) Get(key string) string {
 		atomic.AddInt64(&m.totalRequests, 1) // 总访问量+1
 		m.mu.Unlock()
 	}
+
+	// [调试] 打印哈希计算结果
+	logrus.Debugf("[ConsistentHash] Key: %s, Hash: %d, Idx: %d, Node: %s, TotalKeys: %d", key, hash, idx, node, len(m.keys))
 
 	return node
 }

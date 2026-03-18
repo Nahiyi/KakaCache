@@ -149,18 +149,22 @@ func (s *Server) Stop() {
 
 // Get 实现Cache服务的Get方法
 func (s *Server) Get(ctx context.Context, req *pb.Request) (*pb.ResponseForGet, error) {
+	logrus.Debugf("[Server] 收到 gRPC Get 请求 -> Group: %s, Key: %s", req.Group, req.Key)
 	// 根据组名获取对应的缓存组（由于是全局变量，同包直接调用即可）
 	group := GetGroup(req.Group)
 	if group == nil {
+		logrus.Errorf("[Server] Group 不存在 -> %s", req.Group)
 		return nil, fmt.Errorf("group %s not found", req.Group)
 	}
 
 	// 调用group层的Get方法，得到缓存值字节视图
 	view, err := group.Get(ctx, req.Key)
 	if err != nil {
+		logrus.Errorf("[Server] 获取缓存失败 -> Key: %s, 错误: %v", req.Key, err)
 		return nil, err
 	}
 
+	logrus.Debugf("[Server] 成功返回数据 -> Key: %s, 大小: %d", req.Key, view.Len())
 	// 封装响应，唯一字段： Value
 	return &pb.ResponseForGet{Value: view.ByteSLice()}, nil
 }

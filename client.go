@@ -48,8 +48,9 @@ func NewClient(addr string, svcName string) (*Client, error) {
 }
 
 func (c *Client) Get(group, key string) ([]byte, error) {
-	// 设置 3 秒超时控制
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	logrus.Debugf("[Client] 准备发起 gRPC Get 请求 -> 目标: %s, Group: %s, Key: %s", c.addr, group, key)
+	// 设置 10 秒超时控制，避免首次连接慢导致超时
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// 封装请求，并执行调用
@@ -58,9 +59,11 @@ func (c *Client) Get(group, key string) ([]byte, error) {
 		Key:   key,
 	})
 	if err != nil {
+		logrus.Errorf("[Client] gRPC Get 请求失败 -> 目标: %s, Key: %s, 错误: %v", c.addr, key, err)
 		return nil, fmt.Errorf("failed to get value from kakacache: %v", err)
 	}
 
+	logrus.Debugf("[Client] gRPC Get 请求成功 -> 目标: %s, Key: %s, 响应长度: %d", c.addr, key, len(resp.GetValue()))
 	// 从响应中得到Value（[]byte类型）
 	return resp.GetValue(), nil
 }

@@ -35,7 +35,7 @@ type CacheOptions struct {
 // DefaultCacheOptions 返回默认的缓存配置
 func DefaultCacheOptions() CacheOptions {
 	return CacheOptions{
-		CacheType:    store.LRU2,
+		CacheType:    store.LRU,
 		MaxBytes:     8 * 1024 * 1024, // 8MB
 		BucketCount:  16,
 		CapPerBucket: 512,

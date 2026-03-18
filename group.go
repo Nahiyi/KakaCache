@@ -335,10 +335,13 @@ func (g *Group) loadData(ctx context.Context, key string) (value ByteView, err e
 
 // getFromPeer 从其他节点获取数据
 func (g *Group) getFromPeer(ctx context.Context, peer Peer, key string) (ByteView, error) {
+	logrus.Debugf("[Group] 准备从远程节点获取数据 -> Key: %s", key)
 	bytes, err := peer.Get(g.name, key)
 	if err != nil {
+		logrus.Warnf("[Group] 远程节点获取失败 -> Key: %s, 错误: %v", key, err)
 		return ByteView{}, fmt.Errorf("failed to get from peer: %w", err)
 	}
+	logrus.Debugf("[Group] 远程节点获取成功 -> Key: %s, 大小: %d", key, len(bytes))
 	return ByteView{b: bytes}, nil
 }
 

@@ -95,6 +95,10 @@ func NewClientPicker(addr string, opts ...PickerOption) (*ClientPicker, error) {
 		opt(picker)
 	}
 
+	// 关键debug：把“自己”也加入到一致性哈希环中！
+	// 如果自己不在环里，自己计算哈希时就永远不可能命中自己，只会命中别人（因此极可能导致死锁情况，最终百分百超时）
+	picker.consHash.Add(addr)
+
 	// 初始化 Etcd 客户端，准备向 Etcd 请求数据
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   registry.DefaultConfig.Endpoints,
