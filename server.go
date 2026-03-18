@@ -1,4 +1,4 @@
-package KakaCache
+package kakacache
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	pb "KakaCache/pb"
-	"KakaCache/registry" // 注册中心包
+	pb "github.com/Nahiyi/KakaCache/pb"
+	"github.com/Nahiyi/KakaCache/registry" // 注册中心包
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

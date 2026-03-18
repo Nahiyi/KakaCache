@@ -1,10 +1,10 @@
-package KakaCache
+package kakacache
 
 import (
-	"KakaCache/singleflight"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Nahiyi/KakaCache/singleflight"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"

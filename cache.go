@@ -1,8 +1,8 @@
-package KakaCache
+package kakacache
 
 import (
-	"KakaCache/store"
 	"context"
+	"github.com/Nahiyi/KakaCache/store"
 	"sync"
 	"sync/atomic"
 	"time"

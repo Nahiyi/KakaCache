@@ -1,4 +1,4 @@
-package KakaCache
+package kakacache
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"KakaCache/consistenthash"
-	"KakaCache/registry"
+	"github.com/Nahiyi/KakaCache/consistenthash"
+	"github.com/Nahiyi/KakaCache/registry"
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )

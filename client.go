@@ -1,11 +1,11 @@
-package KakaCache
+package kakacache
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	pb "KakaCache/pb"
+	pb "github.com/Nahiyi/KakaCache/pb"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

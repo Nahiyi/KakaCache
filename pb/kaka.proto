@@ -1,7 +1,7 @@
 syntax = "proto3";
 package pb;
 
-option go_package = "./";
+option go_package = "github.com/Nahiyi/KakaCache/pb";
 
 // 请求结构：包含了操作所需的命名空间(group)、键(key)和值(value)
 message Request {

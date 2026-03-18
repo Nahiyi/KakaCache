@@ -1,4 +1,4 @@
-module KakaCache
+module github.com/Nahiyi/KakaCache
 
 go 1.25.1
 

@@ -1,4 +1,4 @@
-package KakaCache
+package kakacache
 
 // ByteView 只读的字节视图，用于缓存数据
 // 实现了 store 包下的 Value 接口，所以未来存储K-V的时候，使用 ByteView 作为缓存值
