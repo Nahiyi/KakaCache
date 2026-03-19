@@ -50,8 +50,8 @@ func NewOptions() Options {
 // NewStore 创建缓存存储实例
 func NewStore(cacheType CacheType, opts Options) Store {
 	switch cacheType {
-	/*case LRU2:
-	return newLRU2Cache(opts)*/
+	case LRU2:
+		return newLRU2Cache(opts)
 	case LRU:
 		return newLRUCache(opts)
 	default:
